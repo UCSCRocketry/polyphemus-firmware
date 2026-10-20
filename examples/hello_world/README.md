@@ -16,6 +16,8 @@ $ python3 ../../scripts/jlink.py load
 
 N657 Note: The RTT control and buffer blocks are placed in AXISRAM1, thus J-Link's RTT auto-detection may be used in the RTT viewer/client.
 
+STM32N6570-DK Note: Build for `stm32n6570_dk/stm32n657xx/sb`, which links the whole image into AXISRAM2 like `nucleo_n657x0_q`. The default `stm32n6570_dk` target executes in place from external flash behind MCUboot and uses AXISRAM1 as system RAM, so it cannot be loaded with `jlink.py load`.
+
 ## Expected output
 
 Using the CLI RTT client:

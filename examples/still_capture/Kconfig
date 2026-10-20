@@ -12,13 +12,13 @@ menu "Still capture configuration"
 
 config STILL_CAPTURE_WIDTH
 	int "Width of the picture"
-	default 640
+	default 1920
 	help
 	  Width the camera pipeline is asked to produce. Must be a multiple of 16.
 
 config STILL_CAPTURE_HEIGHT
 	int "Height of the picture"
-	default 480
+	default 1280
 	help
 	  Height the camera pipeline is asked to produce. Must be a multiple of 16.
 
@@ -63,7 +63,7 @@ config STILL_CAPTURE_GAIN
 
 config STILL_CAPTURE_JPEG_QUALITY
 	int "JPEG quality"
-	default 50
+	default 100
 	range 5 100
 	help
 	  Output JPEG quality for the encoder.

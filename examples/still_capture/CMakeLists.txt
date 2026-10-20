@@ -6,7 +6,8 @@
 #
 #******************************************************************************
 
-set(BOARD nucleo_n657x0_q)
+# set(BOARD nucleo_n657x0_q)
+set(BOARD stm32n6570_dk/stm32n657xx/sb)
 set(SHIELD st_b_cams_imx_mb1854)
 
 cmake_minimum_required(VERSION 3.20.0)

@@ -1,0 +1,37 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026, UCSC Rocket Team
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ */
+
+#include <zephyr/dt-bindings/memory-attr/memory-attr-arm.h>
+
+
+/ {
+	/*
+	 * Link the RTT control block and buffers into the first 8 kB of AXISRAM1,
+	 * which is not used in any other respect. Marked uncached.
+	 */
+	rtt_ram: memory@34000000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x34000000 DT_SIZE_K(8)>;
+		zephyr,memory-region = "RTT_RAM";
+		zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM_NOCACHE)>;
+	};
+
+	aliases {
+		rtt-custom-section = &rtt_ram;
+	};
+};
+
+/* Hardware JPEG encoder. */
+&jpeg {
+	status = "okay";
+};
+
+/ {
+	chosen {
+		zephyr,videoenc = &jpeg;
+	};
+};

@@ -1,0 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2026, UCSC Rocket Team
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/ {
+	/*
+	 * Link the RTT control block and buffers at the start of AXISRAM1.
+	 * Only the sb variant leaves AXISRAM1 free; the default stm32n6570_dk
+	 * target uses it as zephyr,sram.
+	 */
+	aliases {
+		rtt-custom-section = &axisram1;
+	};
+};
