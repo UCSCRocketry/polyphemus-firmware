@@ -17,11 +17,11 @@ cd payload-ws
 # 3. Fetch Zephyr and modules
 west update
 
-# 4. Register zephyr install
-west zephyr-export
-
-# 5. Install python dependencies
+# 4. Install python dependencies
 pip install -r zephyr/scripts/requirements.txt
+
+# 5. Register zephyr install
+west zephyr-export
 ```
 
 ### Windows
@@ -38,11 +38,11 @@ cd payload-ws
 # 3. Fetch Zephyr and modules
 west update
 
-# 4. Register zephyr install
-west zephyr-export
-
-# 5. Install python dependencies
+# 4. Install python dependencies
 pip install -r zephyr/scripts/requirements.txt
+
+# 5. Register zephyr install
+west zephyr-export
 ```
 
 ## Building an example
@@ -50,7 +50,7 @@ pip install -r zephyr/scripts/requirements.txt
 Each example builds and runs from its own directory; see its README for details.
 
 ```sh
-cd payload-firmware/examples/still_capture
+cd polyphemus-firmware/examples/still_capture
 west build -p always
 ```
 
