@@ -1,0 +1,53 @@
+# Prefixes every issue title with "[POLYFW-<number>] ".
+# - Runs automatically when an issue is opened, reopened, or its title is edited.
+# - Run manually (Actions tab -> "Prefix issue titles" -> Run workflow) to backfill all existing issues.
+name: Prefix issue titles
+
+on:
+  issues:
+    types: [opened, reopened, edited]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  prefix:
+    # Skip "edited" events that didn't touch the title (e.g. body edits)
+    if: github.event.action != 'edited' || github.event.changes.title != null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rename issue(s)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          # Passed via env (not inlined) so untrusted titles can't inject shell
+          NUMBER: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+        run: |
+          set -euo pipefail
+
+          prefix_re='^\[POLYFW-[0-9]+\][[:space:]]*(.*)$'
+
+          rename() {
+            local number="$1" title="$2" base="$2"
+            # Strip any existing (possibly wrong) prefix so it's never doubled
+            if [[ "$title" =~ $prefix_re ]]; then
+              base="${BASH_REMATCH[1]}"
+            fi
+            local want="[POLYFW-${number}] ${base}"
+            if [[ "$title" != "$want" ]]; then
+              gh issue edit "$number" --title "$want" < /dev/null
+              echo "#${number}: '${title}' -> '${want}'"
+            fi
+          }
+
+          if [[ "$GITHUB_EVENT_NAME" == "issues" ]]; then
+            rename "$NUMBER" "$TITLE"
+          else
+            gh issue list --state all --limit 10000 --json number,title \
+              --jq '.[] | "\(.number)\t\(.title)"' |
+            while IFS=$'\t' read -r number title; do
+              rename "$number" "$title"
+            done
+          fi
