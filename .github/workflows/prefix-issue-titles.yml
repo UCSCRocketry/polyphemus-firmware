@@ -1,4 +1,4 @@
-# Prefixes every issue title with "[POLYFW-<number>] ".
+# Prefixes every issue title with "[POLYSW-<number>] ".
 # - Runs automatically when an issue is opened, reopened, or its title is edited.
 # - Run manually (Actions tab -> "Prefix issue titles" -> Run workflow) to backfill all existing issues.
 name: Prefix issue titles
@@ -27,7 +27,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          prefix_re='^\[POLYFW-[0-9]+\][[:space:]]*(.*)$'
+          prefix_re='^\[POLYSW-[0-9]+\][[:space:]]*(.*)$'
 
           rename() {
             local number="$1" title="$2" base="$2"
@@ -35,7 +35,7 @@ jobs:
             if [[ "$title" =~ $prefix_re ]]; then
               base="${BASH_REMATCH[1]}"
             fi
-            local want="[POLYFW-${number}] ${base}"
+            local want="[POLYSW-${number}] ${base}"
             if [[ "$title" != "$want" ]]; then
               gh issue edit "$number" --title "$want" < /dev/null
               echo "#${number}: '${title}' -> '${want}'"
