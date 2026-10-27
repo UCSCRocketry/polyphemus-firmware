@@ -10,7 +10,7 @@ This setup will create the Zephyr workspace (/payload-ws/) in whichever director
 ### MacOS/Linux
 ```sh
 # 1. Create a Python virtual environment where the workspace will go.
-python3 -m venv payload-ws/.venv
+python3 -m venv ~/payload-ws/.venv # Will store your workspace in your home/user folder
 source payload-ws/.venv/bin/activate
 pip install west
 
@@ -22,15 +22,16 @@ cd payload-ws
 west update
 
 # 4. Install python dependencies
-pip install -r zephyr/scripts/requirements.txt
+west packages pip --install
 
 # 5. Register zephyr install
 west zephyr-export
 ```
 
-### Windows
+### Windows (CMD)
 ```sh
 # 1. Create a Python virtual environment where the workspace will go.
+cd %HOMEPATH% # Will store your workspace in your home/user folder
 py -3.12 -m venv payload-ws\.venv
 payload-ws\.venv\Scripts\activate.bat
 pip install west
@@ -43,11 +44,36 @@ cd payload-ws
 west update
 
 # 4. Install python dependencies
-pip install -r zephyr/scripts/requirements.txt
+cmd /c zephyr\scripts\utils\west-packages-pip-install.cmd
 
 # 5. Register zephyr install
 west zephyr-export
 ```
+
+### Windows (Powershell)
+```sh
+# 1. Create a Python virtual environment where the workspace will go.
+cd $Env:HOMEPATH # Will store your workspace in your home/user folder
+py -3.12 -m venv payload-ws\.venv
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+payload-ws\.venv\Scripts\Activate.ps1
+pip install west
+
+# 2. Create the workspace, with this repo as the manifest
+west init -m https://github.com/UCSCRocketry/polyphemus-firmware --mr main payload-ws
+cd payload-ws
+
+# 3. Fetch Zephyr and modules
+west update
+
+# 4. Install python dependencies
+python -m pip install @((west packages pip) -split ' ')
+
+# 5. Register zephyr install
+west zephyr-export
+```
+
+You may need to install the Zephyr SDK if you haven't done so already. To do so, follow [this section](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#install-the-zephyr-sdk) in Zephyr's official getting started guide.
 
 ## Building Hello World
 
