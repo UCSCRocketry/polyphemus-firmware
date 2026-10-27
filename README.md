@@ -5,7 +5,7 @@ Flight firmware for the UCSC Rocketry gimballed camera payload, "Polyphemus".
 ## First-time setup
 Do not `git clone` this repository! Doing so will make things break.
 
-This setup will create the Zephyr workspace (/payload-ws/) in whichever directory you run the following commands. It is recommended that this workspace be your home folder, or some other folder that you dedicate to this work.
+This setup will create the Zephyr workspace (/payload-ws/) in the home folder, which is the recommended location. If you want to put the Zephyr components somewhere else, you will need to edit some of the paths below.
 
 ### MacOS/Linux
 ```sh
@@ -73,7 +73,7 @@ python -m pip install @((west packages pip) -split ' ')
 west zephyr-export
 ```
 
-You may need to install the Zephyr SDK if you haven't done so already. To do so, follow [this section](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#install-the-zephyr-sdk) in Zephyr's official getting started guide.
+You may need to install the Zephyr SDK if you haven't done so already. To do so, follow [this section](https://docs.zephyrproject.org/latest/develop/getting_started/index.html#install-the-zephyr-sdk) in Zephyr's official getting started guide. Note the tip if you need to install it somewhere other than your home directory.
 
 ## Building Hello World
 
