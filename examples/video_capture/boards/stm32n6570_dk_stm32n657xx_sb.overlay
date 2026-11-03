@@ -23,3 +23,14 @@
 		rtt-custom-section = &rtt_ram;
 	};
 };
+
+/*
+ * Move the SD card's data with SDMMC2's internal DMA rather than by interrupt.
+ *
+ * The driver leaves the card in its default speed mode, which is rated to
+ * 25 MHz, but runs the bus directly from SDMMC2's 48 MHz clock. If a card gives
+ * CRC errors, clk-div = <1> brings the bus down to 24 MHz.
+ */
+&sdmmc2 {
+	idma;
+};
