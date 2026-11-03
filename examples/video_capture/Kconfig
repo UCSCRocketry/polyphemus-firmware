@@ -1,0 +1,114 @@
+#******************************************************************************
+#
+# SPDX-FileCopyrightText: Copyright (c) 2026, UCSC Rocket Team
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
+#******************************************************************************
+
+mainmenu "MJPEG video capture sample application"
+
+menu "Video capture configuration"
+
+config VIDEO_CAPTURE_JPEG_DMA
+	bool
+	default y
+	select USE_STM32_HAL_JPEG
+	select USE_STM32_HAL_DMA
+	select USE_STM32_HAL_DMA_EX
+	select RESET
+	help
+	  Build the STM32Cube JPEG and DMA HAL modules for src/jpeg_dma.c. Zephyr's
+	  own JPEG driver stays out of the build, because it feeds the codec by
+	  interrupt, which is too slow for video at this resolution.
+
+config VIDEO_CAPTURE_WIDTH
+	int "Width of the video"
+	default 1440
+	help
+	  Width the camera pipeline is asked to produce. Must be a multiple of 16.
+
+config VIDEO_CAPTURE_HEIGHT
+	int "Height of the video"
+	default 1088
+	help
+	  Height the camera pipeline is asked to produce. Must be a multiple of 16.
+	  The sensor image is cropped to this aspect ratio before it is scaled.
+
+config VIDEO_CAPTURE_FPS
+	int "Frames per second"
+	default 30
+	help
+	  Frame rate asked of the sensor, which runs at 25 or 30 frames per second
+	  at full resolution.
+
+config VIDEO_CAPTURE_DURATION_S
+	int "Length of the recording, in seconds"
+	default 30
+	range 1 3600
+
+config VIDEO_CAPTURE_NUM_BUFS
+	int "Number of capture buffers"
+	default 4
+	range 2 8
+	help
+	  Number of raw frames handed to the camera. The extra buffers let the
+	  encoder fall briefly behind without the camera missing a frame.
+
+config VIDEO_CAPTURE_NUM_JPEG_BUFS
+	int "Number of JPEG buffers"
+	default 64
+	range 2 128
+	help
+	  Number of encoded frames that can wait for the SD card, which is what
+	  absorbs the card's write stalls. Each takes a slot in
+	  CONFIG_VIDEO_BUFFER_POOL_NUM_MAX.
+
+config VIDEO_CAPTURE_JPEG_BUF_SIZE
+	int "Size of each JPEG buffer, in bytes"
+	default 262144
+	help
+	  The largest encoded frame that can be kept. A larger frame is dropped.
+	  Must be a multiple of 4096, and no more than 8 MB.
+
+config VIDEO_CAPTURE_JPEG_QUALITY
+	int "JPEG quality"
+	default 50
+	range 5 100
+	help
+	  Output JPEG quality for the encoder. Data rate rises steeply with quality,
+	  and must stay under what the SD card can sustain.
+
+config VIDEO_CAPTURE_CAMERA_POWER_UP_MS
+	int "Wait for the camera module to power up, in ms"
+	default 100
+	range 0 1000
+	help
+	  The shield switches the camera module's power on at boot, and the sensor
+	  driver starts talking to it over I2C soon after without waiting for the
+	  module to come up. Boot waits this long in between.
+
+config VIDEO_CAPTURE_WARMUP_FRAMES
+	int "Frames to throw away before recording"
+	default 8
+	range 0 255
+	help
+	  The first frames after the sensor starts are unusable and must be discarded.
+
+config VIDEO_CAPTURE_EXPOSURE
+	int "Sensor exposure, in lines"
+	default -1
+	help
+	  Value for VIDEO_CID_EXPOSURE. Set as -1 to keep the sensor driver default,
+	  which is typically the maximum value.
+
+config VIDEO_CAPTURE_GAIN
+	int "Sensor analogue gain, in mdB"
+	default -1
+	help
+	  Value for VIDEO_CID_ANALOGUE_GAIN. Set as -1 to keep the sensor driver
+	  default.
+
+endmenu
+
+source "Kconfig.zephyr"
