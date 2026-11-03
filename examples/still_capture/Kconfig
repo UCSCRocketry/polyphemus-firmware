@@ -18,9 +18,11 @@ config STILL_CAPTURE_WIDTH
 
 config STILL_CAPTURE_HEIGHT
 	int "Height of the picture"
-	default 1280
+	default 1440
 	help
 	  Height the camera pipeline is asked to produce. Must be a multiple of 16.
+	  The whole sensor image is scaled to fit, so the width and height should
+	  keep its 4:3 aspect ratio, or the picture comes out squeezed.
 
 config STILL_CAPTURE_NUM_BUFS
 	int "Number of capture buffers"

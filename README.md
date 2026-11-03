@@ -29,14 +29,16 @@ pip install -r zephyr/scripts/requirements.txt
 Each example builds and runs from its own directory; see its README for details.
 
 ```sh
-cd payload-firmware/examples/still_capture
+cd polyphemus-firmware/examples/still_capture
 west build -p always
 ```
 
-## Loading onto the Nucleo
+## Loading onto a board
 
-`scripts/jlink.py` loads a built image into the Nucleo over a J-Link on its
-MIPI20 connector (CN1) and starts it. From an example's directory:
+`scripts/jlink.py` loads a built image into the board's RAM over a J-Link and
+starts it. On the Nucleo, the J-Link goes on the MIPI20 connector (CN1). The
+STM32N6570-DK examples build for `stm32n6570_dk/stm32n657xx/sb`, which runs from
+RAM in the same way. From an example's directory:
 
 ```sh
 python3 ../../scripts/jlink.py load

@@ -42,8 +42,8 @@
 //!
 //! @section still_capture_usage Usage
 //!
-//! 1. Plug the B-CAMS-IMX into the CSI connector (CN6) and a J-Link into the
-//!    MIPI20 connector (CN1)
+//! 1. Plug the B-CAMS-IMX into the CSI camera connector and a J-Link into the
+//!    board
 //! 2. Build with west build -p always
 //! 3. Load and start the image with scripts/jlink.py load
 //! 4. Run download.py to retrieve and save the picture
@@ -52,7 +52,8 @@
 //! @section still_capture_configuration Configuration
 //!
 //! - @b CONFIG_STILL_CAPTURE_WIDTH, @b CONFIG_STILL_CAPTURE_HEIGHT: Picture
-//!   size in pixels (default: 640x480)
+//!   size in pixels (default: 1920x1440 on the STM32N6570-DK, 640x480 on the
+//!   NUCLEO-N657X0-Q)
 //! - @b CONFIG_STILL_CAPTURE_NUM_BUFS: Capture buffers (default: 2)
 //! - @b CONFIG_STILL_CAPTURE_CAMERA_POWER_UP_MS: Wait at boot for the camera
 //!   module to power up (default: 100)
@@ -60,7 +61,7 @@
 //!   picture is kept (default: 8)
 //! - @b CONFIG_STILL_CAPTURE_EXPOSURE, @b CONFIG_STILL_CAPTURE_GAIN: Sensor
 //!   overrides (default: -1, keep the driver's value)
-//! - @b CONFIG_STILL_CAPTURE_JPEG_QUALITY: JPEG quality (default: 50)
+//! - @b CONFIG_STILL_CAPTURE_JPEG_QUALITY: JPEG quality (default: 100)
 //
 //*****************************************************************************
 

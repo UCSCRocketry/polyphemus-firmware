@@ -17,7 +17,7 @@ struct still_capture_result {
 
 ## Building and running
 
-Ensure the B-CAMS-IMX is plugged into the board's CSI connector (CN6). You must have a J-link debugger on hand and it should be connected to the Nucleo board's MIPI20 connector (CN1).
+Ensure the B-CAMS-IMX is plugged into the board's CSI camera connector. You must have a J-link debugger on hand and it should be connected to the board. On the Nucleo, that is the MIPI20 connector (CN1).
 
 Run from this directory:
 
@@ -31,8 +31,12 @@ By default, the build files and output photo are located within this directory. 
 
 ## Memory
 
-Because the Nucleo has no external RAM large enough, the video buffer pool is configured to live in the whole of AXISRAM3 through AXISRAM6, which is a 4x448 kB memory bank that is formed as a contiguous 1792 kB linker region. The default 640x480 capture uses around 1.5 MB of this memory, spread over two capture buffers to store the raw NV12 image data, and then one JPEG buffer to store the output JPEG. Higher resolutions are not possible due to limited space.
+Because the Nucleo has no external RAM large enough, the video buffer pool is configured to live in the whole of AXISRAM3 through AXISRAM6, which is a 4x448 kB memory bank that is formed as a contiguous 1792 kB linker region. The Nucleo's 640x480 capture uses around 1.5 MB of this memory, spread over two capture buffers to store the raw NV12 image data, and then one JPEG buffer to store the output JPEG. Higher resolutions are not possible due to limited space.
 
-The STM32N6 DK board has an onboard 256 Mb PSRAM device which is used in this example as the video/image buffer.
+The STM32N6 DK board has an onboard 256 Mb PSRAM device which is used in this example as the video/image buffer, which leaves room for its default capture of 1920x1440.
 
 `CONFIG_STILL_CAPTURE_NUM_BUFS`, which is by default 2, configures the number of raw buffers used in the DCMIPP.
+
+## Picture size
+
+The whole 2592x1944 sensor image is scaled to `CONFIG_STILL_CAPTURE_WIDTH` by `CONFIG_STILL_CAPTURE_HEIGHT` without cropping, so a size that is not 4:3 comes out squeezed.
