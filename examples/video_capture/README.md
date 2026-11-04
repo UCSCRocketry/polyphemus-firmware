@@ -35,6 +35,8 @@ Rarely, `video_imx335: Unable to initialize the sensor` appears at boot and the 
 
 Attaching a debugger stalls the CPU briefly. A recording survives this, usually with nothing lost. If the stall lands at a bad moment, the camera has to be restarted, which loses about 10 frames and is reported in the final log. A debugger attaching over and over keeps costing frames, but the recording still finishes.
 
+A debugger connecting through J-Link Commander, which includes `scripts/jlink.py read`, can also cut the VENC off from memory, by clearing its attributes in the RIF. The VENC gives no sign of this. It goes on reporting success while writing nothing, and without a check, one connection ruined the rest of the recording in 2 of 8 tries. The example checks before and after each frame and restores the attributes, which costs at most that frame. `The VENC lost its access to memory` in the log means that this happened. None of the recordings with `JLinkRTTLogger` connected throughout has shown it.
+
 ## Playing a recording
 
 The file is raw MJPEG: JPEG images one after another, with no container or timing. Tell the player the frame rate:

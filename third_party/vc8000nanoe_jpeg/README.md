@@ -53,6 +53,7 @@ It needs all of this:
 - **`CONFIG_ASSERT` off.** The driver's `EWLInit()` asserts that its client is the H.264 encoder.
 - **Uncached output buffers**, or a cache flush between the CPU writing the JPEG header and the hardware starting, which there is no hook for. `JpegEncEncode()` does both, and the hardware then writes the rest of the image right beside the header.
 - **Something to wake the waiting thread.** The driver's interrupt is a direct ISR that does not reschedule, so the thread waiting in `JpegEncEncode()` only wakes at the next ordinary interrupt. A short periodic timer during the encode does the job.
+- **A check on the VENC's RIF attributes.** A debugger connecting can clear them. The hardware then cannot reach memory, but the library still reports success, and resetting the VENC does not help. Restoring them does.
 - **Room for the driver's heap.** It holds the encoder's state, which the hardware does not read. On the STM32N6570-DK it goes in PSRAM by default, at 7 MB. 64 kB in internal RAM is enough (`CONFIG_VIDEO_STM32_VENC_HEAP_ZEPHYR_REGION=n`, `CONFIG_VIDEO_STM32_VENC_HEAP_SIZE`).
 
 `JpegEncCfg.qTableLuma` and `qTableChroma` are in raster order, although `jpegencapi.h` says zigzag, and the library rounds values over 32 to what the hardware can use. A frame cannot quite fill the output buffer.

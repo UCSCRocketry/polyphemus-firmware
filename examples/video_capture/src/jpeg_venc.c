@@ -54,7 +54,7 @@
 //
 // STM32Cube HAL
 //
-#include <soc.h>                    // RCC registers
+#include <soc.h>                    // RCC registers and the RIF
 
 //
 // ST's encoder library
@@ -75,6 +75,11 @@
 #define FRAME_HEIGHT            CONFIG_VIDEO_CAPTURE_HEIGHT
 
 #define QUANT_TABLE_SIZE        64U
+
+//
+// The VENC's security attributes in the RIF, as set at boot.
+//
+#define VENC_RIF_ATTRIBUTES     (RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_PRIV)
 
 BUILD_ASSERT(FRAME_WIDTH % 16 == 0 && FRAME_HEIGHT % 16 == 0,
              "The JPEG encoder works in 16x16 blocks");
@@ -212,6 +217,31 @@ jpeg_venc_init(uint32_t quality)
 
 //*****************************************************************************
 //
+// Check the VENC's security attributes in the RIF, and restore them if they were
+// lost, returning whether they were intact.
+//
+// While a debugger connects, these can be cleared. The VENC then carries on as if
+// nothing were wrong, but cannot reach the PSRAM, so it reads a blank frame and writes
+// nothing, leaving whatever was already in the output buffer. It reports success, and
+// neither resetting it nor starting the encoder again helps.
+//
+//*****************************************************************************
+static bool
+venc_access_intact(void)
+{
+    if ( HAL_RIF_RISC_GetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_VENC) == VENC_RIF_ATTRIBUTES )
+    {
+        return true;
+    }
+
+    LOG_WRN("The VENC lost its access to memory, and it has been restored");
+    HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_VENC, VENC_RIF_ATTRIBUTES);
+
+    return false;
+}
+
+//*****************************************************************************
+//
 // Encode one NV12 frame, and wait for it to finish.
 //
 //*****************************************************************************
@@ -234,9 +264,20 @@ jpeg_venc_encode(const uint8_t *frame, uint8_t *out, size_t out_size, size_t *ou
     JpegEncOut output = {0};
     JpegEncRet ret;
 
+    (void)venc_access_intact();
+
     k_timer_start(&scheduler_nudge, K_MSEC(1), K_MSEC(1));
     ret = JpegEncEncode(encoder, &input, &output, NULL, NULL);
     k_timer_stop(&scheduler_nudge);
+
+    //
+    // Nothing is wrong with the encoder if this frame was lost, so there is no need
+    // to start it again.
+    //
+    if ( !venc_access_intact() )
+    {
+        return -EIO;
+    }
 
     if ( ret == JPEGENC_FRAME_READY )
     {
