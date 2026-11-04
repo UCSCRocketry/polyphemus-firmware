@@ -180,6 +180,8 @@ encoder_start(void)
     if ( ret != JPEGENC_OK )
     {
         LOG_ERR("JpegEncSetPictureSize() returned %d", ret);
+        JpegEncRelease(encoder);
+        encoder = NULL;
         return -EIO;
     }
 
@@ -249,9 +251,12 @@ jpeg_venc_encode(const uint8_t *frame, uint8_t *out, size_t out_size, size_t *ou
 
     //
     // Start again with a new instance, to leave nothing of this failure behind.
+    // If that fails, there is no instance, and the library rejects the next frame
+    // for that reason, which brings this back here to try again.
     //
     LOG_ERR("JpegEncEncode() returned %d", ret);
     JpegEncRelease(encoder);
+    encoder = NULL;
     if ( encoder_start() < 0 )
     {
         LOG_ERR("Could not restart the encoder");

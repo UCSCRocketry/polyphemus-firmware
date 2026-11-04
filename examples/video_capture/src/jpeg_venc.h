@@ -51,8 +51,7 @@ int jpeg_venc_init(uint32_t quality);
 //! @param[out] out_len Size of the JPEG, in bytes.
 //!
 //! @return 0 on success, -ENOSPC if the JPEG did not fit, or another negative
-//!         errno otherwise. The encoder is ready for another frame in all
-//!         cases, unless it could not be restarted after an error.
+//!         errno otherwise. The encoder can take another frame in all cases.
 //
 //*****************************************************************************
 int jpeg_venc_encode(const uint8_t *frame, uint8_t *out, size_t out_size, size_t *out_len);
