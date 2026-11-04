@@ -56,13 +56,15 @@ Write speed depends far more on how much is written at once than on the bus, bec
 
 | Write size | Speed |
 | --- | --- |
-| 16 kB | 3.9 MB/s |
-| 32 kB | 7.1 MB/s |
-| 64 kB | 10.6 MB/s |
-| 256 kB | 17.0 MB/s |
-| 1 MB | 20.0 MB/s |
+| 16 kB | 3.0 to 3.2 MB/s |
+| 32 kB | 3.9 to 4.4 MB/s |
+| 64 kB | 5.0 to 7.8 MB/s |
+| 128 kB | 6.2 to 10.1 MB/s |
+| 256 kB | 8.1 to 10.7 MB/s |
+| 512 kB | 8.4 to 10.7 MB/s |
+| 1 MB | 11.0 to 14.4 MB/s |
 
-These were raw writes to the card. Through FatFs on that card's 16 kB clusters, the speed was around 3 MB/s, and individual writes stalled for up to 843 ms. A card formatted with 64 kB clusters should approach the 64 kB row, though that has not been measured. On macOS this erases the card:
+These were raw writes to the card, 24 MB at each size, over three runs. Shorter tests vary far more. Through FatFs on that card's 16 kB clusters, the speed was 2.8 to 3.0 MB/s, and individual writes stalled for up to 1.2 s. A card formatted with 64 kB clusters should approach the 64 kB row, though that has not been measured. On macOS this erases the card:
 
 ```console
 $ sudo newfs_msdos -F 32 -c 128 /dev/rdiskNsM
@@ -76,11 +78,11 @@ At JPEG quality 50, indoors at night, with the sensor gain raising the signal an
 
 | Sensor gain | Mean brightness | Frame size | Data rate | Frames dropped on the test card |
 | --- | --- | --- | --- | --- |
-| 0 dB | 17 of 255 | 28 kB | 0.8 MB/s | 0 of 901 |
-| 18 dB | 52 of 255 | 63 kB | 1.9 MB/s | 0 of 901 in every run |
-| 30 dB | 154 of 255 | 98 kB | 2.9 MB/s | 13 and 53 of 901 |
+| 0 dB | 18 of 255 | 28 kB | 0.8 MB/s | 0 of 901 |
+| 18 dB | 57 of 255 | 63 kB | 1.9 MB/s | 0 of 901 in every run |
+| 30 dB | 158 of 255 | 98 kB | 2.9 MB/s | 13 and 53 of 901 |
 
-So on a card with 16 kB clusters, a bright and detailed scene will outrun the card at this quality. A detailed scene in daylight has not been measured.
+So on a card with 16 kB clusters, a bright and detailed scene will outrun the card at this quality. A detailed scene in daylight has not been measured. Forcing the sensor to 60 dB, which fills each frame with noise, gave 231 kB frames at 4.5 MB/s, and the recording kept going with a third of its frames dropped.
 
 The frame rate is not limited by the encoder, which takes about 20 ms per frame at this size whatever the quality or content.
 
