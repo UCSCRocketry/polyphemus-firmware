@@ -84,7 +84,7 @@ At JPEG quality 50, indoors at night, with the sensor gain raising the signal an
 | 18 dB | 57 of 255 | 63 kB | 1.9 MB/s | 0 of 901 in every run |
 | 30 dB | 158 of 255 | 98 kB | 2.9 MB/s | 13 and 53 of 901 |
 
-So on a card with 16 kB clusters, a bright and detailed scene will outrun the card at this quality. A detailed scene in daylight has not been measured. Forcing the sensor to 60 dB, which fills each frame with noise, gave 231 kB frames at 4.5 MB/s, and the recording kept going with a third of its frames dropped.
+So on a card with 16 kB clusters, a bright and detailed scene will outrun the card at this quality. A detailed scene in daylight has not been measured. Forcing the sensor to 60 dB, which fills each frame with noise, gave 235 kB frames, and the recording kept going with frames dropped. It kept up 4.5 MB/s for the first 12 s with a third of its frames dropped, but over 24 minutes it settled at 3.0 MB/s with 58% dropped.
 
 The frame rate is not limited by the encoder, which takes about 20 ms per frame at this size whatever the quality or content.
 
