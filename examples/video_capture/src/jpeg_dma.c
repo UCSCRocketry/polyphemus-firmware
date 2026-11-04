@@ -21,10 +21,13 @@
 //! so this file drives the codec over DMA instead.
 //!
 //! The codec takes its input as 4:2:0 MCUs: 16x16 pixels stored as four 8x8
-//! luma blocks and one 8x8 block for each chroma plane, so 384 bytes. Nothing
-//! in the hardware can make these from an NV12 frame, so the CPU converts one
-//! row of MCUs at a time into one of two strip buffers in internal RAM. DMA
-//! feeds the codec from one strip while the CPU fills the other.
+//! luma blocks and one 8x8 block for each chroma plane, so 384 bytes. The codec
+//! has no way to read a frame from memory itself, so the CPU converts one row of
+//! MCUs at a time into one of two strip buffers in internal RAM. DMA feeds the
+//! codec from one strip while the CPU fills the other.
+//!
+//! The VENC peripheral is a separate JPEG encoder whose API takes NV12 directly,
+//! which this example does not use. See third_party/vc8000nanoe_jpeg.
 //!
 //! The JPEG leaves the codec in a single DMA transfer per frame, which the DMA
 //! controller repeats block by block with no gaps. This is why the STM32Cube
