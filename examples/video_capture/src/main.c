@@ -40,7 +40,10 @@
 //! 4. @b Dropped @b Frames: Counts each frame that is lost and carries on,
 //!    rather than ending the recording
 //!
-//! 5. @b Safe @b Storage: Writes each recording to the next unused file name,
+//! 5. @b Camera @b Recovery: Restarts the camera if it stops delivering frames,
+//!    as a debugger attaching during a recording can make it do
+//!
+//! 6. @b Safe @b Storage: Writes each recording to the next unused file name,
 //!    and never formats the card
 //!
 //! @section video_capture_usage Usage
@@ -139,6 +142,13 @@ BUILD_ASSERT(CONFIG_VIDEO_CAPTURE_JPEG_BUF_SIZE % SECTOR_BYTES == 0,
 #define PADDING_BYTE            0xFFU
 
 //
+// How long to wait for a frame before deciding that the camera has stopped, and
+// how many times in a row it can stop before giving up on it.
+//
+#define FRAME_TIMEOUT           K_MSEC(500)
+#define MAX_CAMERA_RESTARTS     3U
+
+//
 // The largest file FAT32 allows.
 //
 #define MAX_FILE_BYTES          0xFFFFFFFFU
@@ -166,9 +176,10 @@ BUILD_ASSERT(CONFIG_VIDEO_CAPTURE_JPEG_BUF_SIZE % SECTOR_BYTES == 0,
 LOG_MODULE_REGISTER(video_capture);
 
 //
-// The camera device.
+// The camera device, and the buffers it fills.
 //
 static const struct device *const camera_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_camera));
+static struct video_buffer *capture_buffers[CONFIG_VIDEO_CAPTURE_NUM_BUFS];
 
 //
 // The file system and the recording.
@@ -210,6 +221,7 @@ static struct
     uint32_t no_buffer;         // Frames dropped with no JPEG buffer free
     uint32_t too_large;         // Frames dropped for not fitting a JPEG buffer
     uint32_t failed;            // Frames dropped because the encoder failed
+    uint32_t camera_restarts;   // Times the camera stopped and was restarted
     uint64_t encode_total_us;   // Time spent encoding the frames
     uint32_t encode_worst_us;   // The longest time taken to encode a frame
     uint32_t queue_peak;        // The most frames that were waiting for the card
@@ -443,15 +455,13 @@ alloc_buffer(size_t size)
 
 //*****************************************************************************
 //
-// Allocate the JPEG buffers and the capture buffers, and give the latter to the
-// camera.
+// Allocate the JPEG buffers and the capture buffers.
 //
 //*****************************************************************************
 static int
 allocate_buffers(const struct video_format *fmt)
 {
     struct video_buffer *vbuf;
-    int ret;
 
     for ( unsigned int i = 0; i < CONFIG_VIDEO_CAPTURE_NUM_JPEG_BUFS; i++ )
     {
@@ -473,7 +483,25 @@ allocate_buffers(const struct video_format *fmt)
         }
 
         vbuf->type = VIDEO_BUF_TYPE_OUTPUT;
-        ret = video_enqueue(camera_dev, vbuf);
+        capture_buffers[i] = vbuf;
+    }
+
+    return 0;
+}
+
+//*****************************************************************************
+//
+// Give the camera all of the capture buffers, and start it.
+//
+//*****************************************************************************
+static int
+camera_start(void)
+{
+    int ret;
+
+    for ( unsigned int i = 0; i < CONFIG_VIDEO_CAPTURE_NUM_BUFS; i++ )
+    {
+        ret = video_enqueue(camera_dev, capture_buffers[i]);
         if ( ret < 0 )
         {
             LOG_ERR("Unable to enqueue a capture buffer (err %d)", ret);
@@ -481,7 +509,44 @@ allocate_buffers(const struct video_format *fmt)
         }
     }
 
-    return 0;
+    ret = video_stream_start(camera_dev, VIDEO_BUF_TYPE_OUTPUT);
+    if ( ret < 0 )
+    {
+        LOG_ERR("Unable to start the camera (err %d)", ret);
+    }
+
+    return ret;
+}
+
+//*****************************************************************************
+//
+// Get the camera going again after it has stopped delivering frames.
+//
+// If the CPU stalls across the end of a frame and the next vsync, as it can when
+// a debugger attaches, the DCMIPP driver handles the two out of order. It loses
+// track of one capture buffer for good, delivers a frame that is still being
+// written, and wakes anything waiting for the next frame with no frame at all.
+// Enough lost buffers would stop the camera for good, so this hands it the full
+// set from capture_buffers rather than what it still knows about.
+//
+//*****************************************************************************
+static int
+camera_restart(void)
+{
+    struct video_buffer *vbuf;
+    int ret;
+
+    ret = video_stream_stop(camera_dev, VIDEO_BUF_TYPE_OUTPUT);
+    if ( ret < 0 )
+    {
+        LOG_WRN("Unable to stop the camera (err %d)", ret);
+    }
+
+    while ( video_dequeue(camera_dev, &vbuf, K_NO_WAIT) == 0 )
+    {
+    }
+
+    return camera_start();
 }
 
 //*****************************************************************************
@@ -611,36 +676,68 @@ report_progress(uint32_t seconds)
 // Stream from the camera, discard the warm-up frames, and record the rest until
 // the configured time is up, the file is full, or the card fails.
 //
+// The time keeps running while the camera is restarted, and those frames count
+// as missed.
+//
 //*****************************************************************************
 static int
 record(int64_t *elapsed_ms)
 {
     const int64_t duration_ms = CONFIG_VIDEO_CAPTURE_DURATION_S * 1000LL;
     struct video_buffer *frame;
+    uint32_t warmup_frames = CONFIG_VIDEO_CAPTURE_WARMUP_FRAMES;
+    uint32_t restarts_in_a_row = 0;
     uint32_t last_timestamp = 0;
     uint32_t last_report_s = 0;
     int64_t start = 0;
     int ret;
 
-    ret = video_stream_start(camera_dev, VIDEO_BUF_TYPE_OUTPUT);
+    ret = camera_start();
     if ( ret < 0 )
     {
-        LOG_ERR("Unable to start the camera (err %d)", ret);
         return ret;
     }
 
-    for ( uint32_t count = 0; ; count++ )
+    while ( true )
     {
-        ret = video_dequeue(camera_dev, &frame, K_SECONDS(2));
+        ret = video_dequeue(camera_dev, &frame, FRAME_TIMEOUT);
+        if ( ret == -EAGAIN )
+        {
+            restarts_in_a_row++;
+            if ( restarts_in_a_row > MAX_CAMERA_RESTARTS )
+            {
+                LOG_ERR("The camera has stopped delivering frames");
+                return ret;
+            }
+
+            LOG_WRN("The camera stopped delivering frames, restarting it");
+            stats.camera_restarts++;
+
+            ret = camera_restart();
+            if ( ret < 0 )
+            {
+                return ret;
+            }
+
+            warmup_frames = CONFIG_VIDEO_CAPTURE_WARMUP_FRAMES;
+            continue;
+        }
+
         if ( ret < 0 )
         {
-            LOG_ERR("No frame after %u frames (err %d)", count, ret);
+            LOG_ERR("Unable to get a frame (err %d)", ret);
             return ret;
         }
 
-        if ( count >= CONFIG_VIDEO_CAPTURE_WARMUP_FRAMES )
+        restarts_in_a_row = 0;
+
+        if ( warmup_frames > 0U )
         {
-            if ( count == CONFIG_VIDEO_CAPTURE_WARMUP_FRAMES )
+            warmup_frames--;
+        }
+        else
+        {
+            if ( start == 0 )
             {
                 start = k_uptime_get();
             }
@@ -656,10 +753,9 @@ record(int64_t *elapsed_ms)
                 stats.missed += (gap > 1U) ? (gap - 1U) : 0U;
             }
 
+            last_timestamp = frame->timestamp;
             record_frame(frame);
         }
-
-        last_timestamp = frame->timestamp;
 
         ret = video_enqueue(camera_dev, frame);
         if ( ret < 0 )
@@ -725,6 +821,11 @@ report_summary(int64_t elapsed_ms)
             "%u too large, %u failed to encode",
             stats.missed + stats.no_buffer + stats.too_large + stats.failed, stats.missed,
             stats.no_buffer, stats.too_large, stats.failed);
+
+    if ( stats.camera_restarts > 0U )
+    {
+        LOG_WRN("The camera had to be restarted %u times", stats.camera_restarts);
+    }
 
     if ( stats.encoded > 0U )
     {
