@@ -56,15 +56,15 @@ Write speed depends far more on how much is written at once than on the bus, bec
 
 | Write size | Speed |
 | --- | --- |
-| 16 kB | 3.0 to 3.2 MB/s |
+| 16 kB | 2.3 to 3.2 MB/s |
 | 32 kB | 3.9 to 4.4 MB/s |
 | 64 kB | 5.0 to 7.8 MB/s |
 | 128 kB | 6.2 to 10.1 MB/s |
-| 256 kB | 8.1 to 10.7 MB/s |
+| 256 kB | 7.7 to 10.7 MB/s |
 | 512 kB | 8.4 to 10.7 MB/s |
 | 1 MB | 11.0 to 14.4 MB/s |
 
-These were raw writes to the card, 24 MB at each size, over three runs. Shorter tests vary far more. Through FatFs on that card's 16 kB clusters, the speed was 2.8 to 3.0 MB/s, and individual writes stalled for up to 1.2 s. A card formatted with 64 kB clusters should approach the 64 kB row, though that has not been measured. On macOS this erases the card:
+These were raw writes to the card, 24 MB at each size, over four runs. Shorter tests vary far more. Through FatFs on that card's 16 kB clusters, the speed was 2.8 to 3.0 MB/s, and individual writes stalled for up to 1.2 s. A card formatted with 64 kB clusters should approach the 64 kB row, though that has not been measured. On macOS this erases the card:
 
 ```console
 $ sudo newfs_msdos -F 32 -c 128 /dev/rdiskNsM
