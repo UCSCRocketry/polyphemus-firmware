@@ -31,8 +31,8 @@
 //! 1. @b Camera @b Capture: Streams NV12 frames through the Zephyr video API,
 //!    cropping the sensor image so that scaling it does not squeeze the picture
 //!
-//! 2. @b JPEG @b Encoding: Encodes each frame over DMA with the hardware JPEG
-//!    codec, which is the job of jpeg_dma.c
+//! 2. @b JPEG @b Encoding: Encodes each frame with the VENC peripheral, which
+//!    costs the CPU almost nothing. This is the job of jpeg_venc.c
 //!
 //! 3. @b Write @b Buffering: Holds encoded frames in PSRAM, so that recording
 //!    carries on through the write stalls of the SD card
@@ -83,7 +83,6 @@
 //
 #include <zephyr/kernel.h>          // Threads, message queues and timeouts
 #include <zephyr/init.h>            // SYS_INIT() for the hardware set-up at boot
-#include <zephyr/cache.h>           // Data cache flush and invalidate
 #include <zephyr/drivers/video.h>   // Video capture API
 #include <zephyr/video/video.h>     // Video buffers and compose format
 #include <zephyr/fs/fs.h>           // File system API
@@ -99,18 +98,13 @@
 //
 #include <soc.h>                    // HAL RIF driver
 
-#include "jpeg_dma.h"
+#include "jpeg_venc.h"
 
 //*****************************************************************************
 //
 // Build-time checks.
 //
 //*****************************************************************************
-
-#ifdef CONFIG_DCACHE
-BUILD_ASSERT(CONFIG_VIDEO_BUFFER_POOL_ALIGN % CONFIG_DCACHE_LINE_SIZE == 0,
-             "Video buffers are invalidated whole, so they must not share a cache line");
-#endif
 
 BUILD_ASSERT(CONFIG_VIDEO_CAPTURE_NUM_BUFS + CONFIG_VIDEO_CAPTURE_NUM_JPEG_BUFS <=
              CONFIG_VIDEO_BUFFER_POOL_NUM_MAX,
@@ -137,9 +131,6 @@ BUILD_ASSERT(CONFIG_VIDEO_CAPTURE_NUM_BUFS + CONFIG_VIDEO_CAPTURE_NUM_JPEG_BUFS 
 
 BUILD_ASSERT(CONFIG_VIDEO_CAPTURE_JPEG_BUF_SIZE % SECTOR_BYTES == 0,
              "JPEG buffers must have room for the padding at the end of a frame");
-
-BUILD_ASSERT(CONFIG_VIDEO_CAPTURE_JPEG_BUF_SIZE % JPEG_DMA_OUT_MULTIPLE == 0,
-             "The encoder can only use JPEG buffers of a whole number of its DMA blocks");
 
 //
 // Players look for the start of the next image, and skip anything before it.
@@ -564,8 +555,7 @@ record_frame(struct video_buffer *frame)
     }
 
     start = k_cycle_get_32();
-    sys_cache_data_invd_range(frame->buffer, frame->size);
-    ret = jpeg_dma_encode(frame->buffer, jpeg->buffer, jpeg->size, &length);
+    ret = jpeg_venc_encode(frame->buffer, jpeg->buffer, jpeg->size, &length);
     elapsed_us = k_cyc_to_us_floor32(k_cycle_get_32() - start);
 
     if ( ret < 0 )
@@ -586,14 +576,6 @@ record_frame(struct video_buffer *frame)
 
     padded = ROUND_UP(length, SECTOR_BYTES);
     memset(jpeg->buffer + length, PADDING_BYTE, padded - length);
-
-    //
-    // The SD card's DMA reads this from memory, not from the cache. Nothing is
-    // left in the cache, so that it cannot go stale for the next frame in this
-    // buffer.
-    //
-    sys_cache_data_flush_and_invd_range(jpeg->buffer, padded);
-
     jpeg->bytesused = padded;
 
     stats.encoded++;
@@ -797,7 +779,7 @@ main(void)
         goto err_close;
     }
 
-    ret = jpeg_dma_init(CONFIG_VIDEO_CAPTURE_JPEG_QUALITY);
+    ret = jpeg_venc_init(CONFIG_VIDEO_CAPTURE_JPEG_QUALITY);
     if ( ret < 0 )
     {
         LOG_ERR("Unable to start the JPEG encoder (err %d)", ret);

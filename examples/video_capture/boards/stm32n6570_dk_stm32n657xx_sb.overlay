@@ -34,3 +34,17 @@
 &sdmmc2 {
 	idma;
 };
+
+/* The VENC, which encodes the JPEGs. */
+&venc {
+	status = "okay";
+};
+
+/*
+ * Leave the PSRAM uncached. It holds the frames and the JPEGs, and the hardware
+ * does nearly all of the reading and writing there. The CPU only writes each
+ * JPEG's header and padding, the VENC writing right beside the header.
+ */
+&psram {
+	zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM_NOCACHE)>;
+};

@@ -10,18 +10,6 @@ mainmenu "MJPEG video capture sample application"
 
 menu "Video capture configuration"
 
-config VIDEO_CAPTURE_JPEG_DMA
-	bool
-	default y
-	select USE_STM32_HAL_JPEG
-	select USE_STM32_HAL_DMA
-	select USE_STM32_HAL_DMA_EX
-	select RESET
-	help
-	  Build the STM32Cube JPEG and DMA HAL modules for src/jpeg_dma.c. Zephyr's
-	  own JPEG driver stays out of the build, because it feeds the codec by
-	  interrupt, which is too slow for video at this resolution.
-
 config VIDEO_CAPTURE_WIDTH
 	int "Width of the video"
 	default 1440
@@ -69,7 +57,7 @@ config VIDEO_CAPTURE_JPEG_BUF_SIZE
 	default 262144
 	help
 	  The largest encoded frame that can be kept. A larger frame is dropped.
-	  Must be a multiple of 4096, and no more than 8 MB.
+	  Must be a multiple of 512.
 
 config VIDEO_CAPTURE_JPEG_QUALITY
 	int "JPEG quality"

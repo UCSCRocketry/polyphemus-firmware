@@ -8,29 +8,24 @@
 
 //*****************************************************************************
 //
-//! @file jpeg_dma.h
+//! @file jpeg_venc.h
 //!
-//! @brief Encode NV12 frames with the STM32N6 JPEG codec over HPDMA.
+//! @brief Encode NV12 frames as JPEGs with the STM32N6 VENC peripheral.
 //!
 //! @addtogroup video_capture
 //! @{
 //
 //*****************************************************************************
 
-#ifndef JPEG_DMA_H
-#define JPEG_DMA_H
+#ifndef JPEG_VENC_H
+#define JPEG_VENC_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-//
-// The size of an output buffer must be a multiple of this.
-//
-#define JPEG_DMA_OUT_MULTIPLE   4096U
-
 //*****************************************************************************
 //
-//! @brief Bring up the JPEG codec and its two DMA channels.
+//! @brief Bring up the JPEG encoder.
 //!
 //! The picture size comes from CONFIG_VIDEO_CAPTURE_WIDTH and
 //! CONFIG_VIDEO_CAPTURE_HEIGHT.
@@ -40,31 +35,29 @@
 //! @return 0 on success, or a negative errno otherwise.
 //
 //*****************************************************************************
-int jpeg_dma_init(uint32_t quality);
+int jpeg_venc_init(uint32_t quality);
 
 //*****************************************************************************
 //
 //! @brief Encode one NV12 frame, and wait for it to finish.
 //!
-//! The caller must already have invalidated the frame from the data cache.
-//! On return, the part of out that was written may be dirty in the data cache,
-//! and the caller is responsible for flushing it.
+//! The VENC reads the frame and writes the JPEG directly, so neither can be in
+//! cached memory.
 //!
 //! @param frame The NV12 frame, with a luma pitch of the frame width.
-//! @param out Where to write the JPEG. Must be 4 byte aligned.
-//! @param out_size Size of out, in bytes. Any part beyond the last multiple of
-//!        JPEG_DMA_OUT_MULTIPLE goes unused.
-//! @param[out] out_len Size of the JPEG, in bytes. This is a multiple of 4, so
-//!             up to 3 bytes of padding can follow the end of the image.
+//! @param out Where to write the JPEG. Must be 8 byte aligned.
+//! @param out_size Size of out, in bytes. The VENC stops a little short of the
+//!        end, so a JPEG cannot quite fill it.
+//! @param[out] out_len Size of the JPEG, in bytes.
 //!
 //! @return 0 on success, -ENOSPC if the JPEG did not fit, or another negative
-//!         errno otherwise. After a failure, the encoder has been reset and is
-//!         ready for another frame.
+//!         errno otherwise. The encoder is ready for another frame in all
+//!         cases, unless it could not be restarted after an error.
 //
 //*****************************************************************************
-int jpeg_dma_encode(const uint8_t *frame, uint8_t *out, size_t out_size, size_t *out_len);
+int jpeg_venc_encode(const uint8_t *frame, uint8_t *out, size_t out_size, size_t *out_len);
 
-#endif // JPEG_DMA_H
+#endif // JPEG_VENC_H
 
 //*****************************************************************************
 //
