@@ -2,7 +2,7 @@
 
 Record video from the B-CAMS-IMX to the microSD card on the STM32N6570-DK as MJPEG. By default this is 1440x1088 at 30 frames per second for 30 seconds, starting as soon as the image runs.
 
-Each frame goes from the camera through the DCMIPP into PSRAM as NV12, then through the STM32N6 hardware JPEG codec over DMA, and waits in PSRAM to be written to the card. The Nucleo is not supported, as it has neither the PSRAM nor the card slot.
+Each frame goes from the camera through the DCMIPP into PSRAM as NV12. The VENC peripheral encodes it as a JPEG, also in PSRAM, where it waits to be written to the card. The hardware does nearly all of this, which leaves the CPU almost free. The Nucleo is not supported, as it has neither the PSRAM nor the card slot.
 
 ## Building and running
 
@@ -19,20 +19,21 @@ Watch the recording with `JLinkRTTClient`. Wait for the final line before removi
 
 ```console
 Video capture example!
-Recording 30 s to /SD:/VID00016.MJP
+Recording 30 s to /SD:/VID00031.MJP
 Capturing NV12 1440x1088 from a 2572x1944 crop at 30 fps, 2350080 bytes per frame
 ...
- 29 s: 871 encoded, 870 written, 1344 kB/s, 0 of 64 buffers queued, dropped 0
-Recorded /SD:/VID00016.MJP: 901 frames, 38772736 bytes in 30016 ms, 30.01 fps
+Recorded /SD:/VID00031.MJP: 901 frames, 57083904 bytes in 30020 ms, 30.01 fps
 Dropped 0 frames: 0 missed by the camera, 0 with no JPEG buffer free, 0 too large, 0 failed to encode
-Encoding took 16883 us per frame on average, 16942 us at worst
-Writing took 384309 us at worst, with up to 31 of 64 buffers queued
+Encoding took 20043 us per frame on average, 20104 us at worst
+Writing took 311390 us at worst, with up to 27 of 64 buffers queued
 Done. It is now safe to remove the SD card.
 ```
 
 The driver warning `stm32_sdmmc: Failed to configure pins for sleep (-2)` is harmless.
 
 Rarely, `video_imx335: Unable to initialize the sensor` appears at boot and the recording fails. Load the image again.
+
+Attaching a debugger stalls the CPU briefly. A recording survives this, usually with nothing lost. If the stall lands at a bad moment, the camera has to be restarted, which loses about 10 frames and is reported in the final log. A debugger attaching over and over keeps costing frames, but the recording still finishes.
 
 ## Playing a recording
 
@@ -45,7 +46,7 @@ $ ffmpeg -f mjpeg -framerate 30 -i VID00001.MJP -c copy VID00001.avi
 
 Every dropped frame makes the rest of the video play slightly early, so check the final log when timing matters. Each frame is padded to a multiple of 512 bytes, which players skip.
 
-The picture is green and dark, as nothing corrects the raw sensor image for white balance, black level or gamma. `CONFIG_VIDEO_CAPTURE_EXPOSURE` and `CONFIG_VIDEO_CAPTURE_GAIN` set the sensor's exposure and gain. The sensor driver defaults to the longest exposure, which is a whole frame time.
+The picture is green and dark, as nothing corrects the raw sensor image for white balance, black level or gamma. `CONFIG_VIDEO_CAPTURE_EXPOSURE` and `CONFIG_VIDEO_CAPTURE_GAIN` set the sensor's exposure and gain. The sensor driver defaults to the longest exposure, which is a whole frame time, and no gain.
 
 ## The SD card
 
@@ -71,34 +72,41 @@ The bus is 4 bits wide at 48 MHz, using SDMMC2's internal DMA. This is faster th
 
 ## Data rate
 
-The encoder takes about 17 ms per frame at this size whatever the JPEG quality, so what limits the frame rate is the card. Measured indoors at the default exposure:
+At JPEG quality 50, indoors at night, with the sensor gain raising the signal and its noise:
 
-| JPEG quality | Scene | Frame size | Data rate | Result on the test card |
+| Sensor gain | Mean brightness | Frame size | Data rate | Frames dropped on the test card |
 | --- | --- | --- | --- | --- |
-| 50 | Dim and plain | 30 kB | 1 MB/s | No frames dropped |
-| 50 | Brighter | 43 kB | 1.3 MB/s | No frames dropped |
-| 90 | Dim and plain | 86 kB | 2.6 MB/s | No frames dropped |
-| 90 | Brighter | 133 kB | 4 MB/s | 115 of 601 frames dropped |
+| 0 dB | 17 of 255 | 28 kB | 0.8 MB/s | 0 of 901 |
+| 18 dB | 52 of 255 | 63 kB | 1.9 MB/s | 0 of 901 in every run |
+| 30 dB | 154 of 255 | 98 kB | 2.9 MB/s | 13 and 53 of 901 |
 
-A detailed scene in daylight will make larger frames than any of these, and has not been measured. At quality 100, the frames of even the dim scene were over 512 kB, too large for the default 256 kB JPEG buffers.
+So on a card with 16 kB clusters, a bright and detailed scene will outrun the card at this quality. A detailed scene in daylight has not been measured.
+
+The frame rate is not limited by the encoder, which takes about 20 ms per frame at this size whatever the quality or content.
+
+## CPU
+
+At 1.9 MB/s, the CPU is about 45% busy. Nearly all of that is the SD driver polling the card for the end of each write, at a lower priority than everything else, so it gets out of the way of any other work. Leaving that out, the example uses under 2% of the CPU.
 
 ## Dropped frames
 
 A recording carries on through anything short of a failed write, and the final log says what was lost:
 
-- **Missed by the camera**: the encoder fell behind and all `CONFIG_VIDEO_CAPTURE_NUM_BUFS` capture buffers were full.
+- **Missed by the camera**: the camera had no free buffer in `CONFIG_VIDEO_CAPTURE_NUM_BUFS`, or was being restarted.
 - **No JPEG buffer free**: the card fell behind and all `CONFIG_VIDEO_CAPTURE_NUM_JPEG_BUFS` JPEG buffers were waiting for it. Lower the quality, use a faster card, or format it with larger clusters.
 - **Too large**: the frame did not fit in `CONFIG_VIDEO_CAPTURE_JPEG_BUF_SIZE`.
-- **Failed to encode**: the encoder had an error. It resets itself and carries on with the next frame.
+- **Failed to encode**: the encoder had an error. It restarts itself and carries on with the next frame.
 
 ## Memory
 
 The video buffer pool takes 26.4 MB of the 32 MB PSRAM, for 4 capture buffers at 2.35 MB and 64 JPEG buffers at 256 kB. The JPEG buffers cover a little over 2 seconds of card stalls at 30 frames per second. Changing the size or number of buffers can also mean changing `CONFIG_VIDEO_BUFFER_POOL_HEAP_SIZE` and `CONFIG_VIDEO_BUFFER_POOL_NUM_MAX`.
 
-The JPEG codec needs its input as 16x16 blocks, so the width and height must be multiples of 16, and 1080 lines is not possible. Other sizes up to the sensor's 2592x1944 can be set with `CONFIG_VIDEO_CAPTURE_WIDTH` and `CONFIG_VIDEO_CAPTURE_HEIGHT`, and the sensor image is cropped to match their aspect ratio.
+The PSRAM is uncached, because the hardware does nearly all of the reading and writing there. The CPU only writes each JPEG's header and padding.
 
-## Why not Zephyr's JPEG driver?
+JPEG works in 16x16 blocks, so the width and height must be multiples of 16, and 1080 lines is not possible. Other sizes can be set with `CONFIG_VIDEO_CAPTURE_WIDTH` and `CONFIG_VIDEO_CAPTURE_HEIGHT`, and the sensor image is cropped to match their aspect ratio. Larger sizes take the encoder longer, and it must stay under the 33 ms between frames.
 
-It moves data through the codec's FIFOs by interrupt, 16 bytes at a time, which at this rate is over 4 million interrupts per second, or under 200 CPU cycles for each. `src/jpeg_dma.c` uses the codec over HPDMA instead. This builds without `CONFIG_VIDEO_ENCODER_JPEG`, so that the driver and its HAL callbacks stay out of the image.
+## Why the VENC?
 
-The STM32Cube HAL has a function for this, `HAL_JPEG_Encode_DMA()`, but it is not used here. Restarting its output DMA between chunks can put junk in the middle of the JPEG, and a chunk that ends along with the frame makes the encode hang. So `src/jpeg_dma.c` starts and ends each frame itself, with one DMA transfer for the whole JPEG. The comments there explain this, along with what the HPDMA and the codec need that is not obvious from the HAL: a compartment ID on each channel, 8 word bursts, and setting the input DMA enable again for each strip.
+The chip has two JPEG encoders. The JPEG codec has no way to read a frame from memory, and needs its input rearranged into blocks first, which takes about 45% of the CPU at this resolution and frame rate. The VENC takes NV12 directly. Compared on the same frames, the two come out at the same image quality. At quality 50 the sizes match, and at quality 90 the VENC's are up to 4.5% larger.
+
+Zephyr's VENC driver only supports H.264, so `src/jpeg_venc.c` uses ST's encoder library in `third_party/vc8000nanoe_jpeg`, with the driver providing the hardware access. The comments there cover what that takes.
